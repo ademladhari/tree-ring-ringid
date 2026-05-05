@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ringid-watermark"
+version = "0.1.0"
+description = "Tree-Ring-style and RingID-style diffusion latent watermarking (faithful to RingID paper / Tree-Ring recap)."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "torch>=2.0",
+  "torchvision>=0.15",
+  "diffusers>=0.27.0",
+  "transformers>=4.35",
+  "accelerate>=0.26",
+  "pillow>=10.0",
+  "numpy>=1.24",
+  "safetensors>=0.4",
+]
+
+[project.optional-dependencies]
+eval = ["scikit-learn>=1.3"]
+dev = ["pytest>=7.4", "scikit-learn>=1.3"]
+
+[project.scripts]
+ringid-generate = "ringid.cli_generate:main"
+ringid-verify = "ringid.cli_verify:main"
+ringid-identify = "ringid.cli_identify:main"
+ringid-eval = "ringid.cli_eval:main"
+
+[tool.setuptools.package-dir]
+
+"" = "src"
+
+
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

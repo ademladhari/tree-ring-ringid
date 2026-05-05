@@ -1,0 +1,14 @@
+# CUDA 12.8 PyTorch wheels (RTX 50-series / Blackwell, e.g. RTX 5060).
+#
+# From an activated venv (cmd.exe):
+#   pip install -U pip
+#   pip install -U torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#
+# Then install the project without pulling CPU torch from PyPI:
+#   pip install diffusers>=0.27 transformers>=4.35 accelerate>=0.26 pillow>=10 numpy>=1.24 safetensors>=0.4 pytest scikit-learn
+#   pip install -e . --no-deps
+#
+# (Optional) pin file for the cu128 index only — rarely needed if you used the command above:
+--index-url https://download.pytorch.org/whl/cu128
+torch
+torchvision

@@ -1,0 +1,986 @@
+RingID: Rethinking Tree-Ring Watermarking for
+Enhanced Multi-Key Identification
+Hai Ci
+∗
+, Pei Yang
+∗
+, Yiren Song
+∗
+, and Mike Zheng Shou
+
+Show Lab, National University of Singapore
+cihai03@gmail.com yangpei@u.nus.edu
+yiren@nus.edu.sg mike.zheng.shou@gmail.com
+Abstract. We revisit Tree-Ring Watermarking, a recent diffusion model
+watermarking method that demonstrates great robustness to various attacks. We conduct an in-depth study on it and reveal that the distribution shift unintentionally introduced by the watermarking process,
+apart from watermark pattern matching, contributes to its exceptional
+robustness. Our investigation further exposes inherent flaws in its original design, particularly in its ability to identify multiple distinct keys,
+where distribution shift offers no assistance. Based on these findings and
+analysis, we present RingID for enhanced multi-key identification. It consists of a novel multi-channel heterogeneous watermarking approach designed to seamlessly amalgamate distinctive advantages from diverse watermarks. Coupled with a series of suggested enhancements, RingID exhibits substantial advancements in multi-key identification. Github page:
+https://github.com/showlab/RingID
+Keywords: Diffusion Models
+· Tree-Ring Watermarking
+· Multi-Key
+Identification
+1 Introduction
+With the popularity of diffusion models, a vast number of high-quality diffusion
+generated images are circulating on the internet. It has become increasingly
+important to identify AI-generated images to detect fabrication and to track
+and protect copyrights. Luckily, watermarking [1, 13] offers a reliable solution.
+Research on watermarking has a long history in computer vision [9, 37]. A
+series of works [13, 14, 38, 51, 52] imprint imperceptible watermarks on images
+through small pixel perturbations. Recently, [50] demonstrates that pixel-level
+perturbations are provably removable by regeneration attacks. In contrast, TreeRing Watermarking [41] has recently introduced a novel approach, proposing to
+imprint a specially designed tree-ring pattern into the initial noise of a diffusion model. Different patterns are also called different "keys". The verification
+of the watermark’s existence involves recovering the initial diffusion noise from
+the image and comparing the extracted key with the injected one. Tree-Ring * Equal Contribution. Corresponding Author.
+arXiv:2404.14055v3 [cs.CV] 18 Jul 2024
+2 H. Ci et al.
+0
+0.2
+0.4
+0.6
+0.8
+1
+8 32 128 512 2048
+Accuracy
+Number of Keys
+ Tree-Ring
+ RingID
+Tree-Ring RingID
+Fig. 1: Tree-Ring imprints a broken watermark to a single channel. Our method RingID
+achieves stronger robustness by imprinting intact watermarks to multiple channels. In
+the task of multi-key identification, RingID shows overwhelming advantages.
+is considered a semantic watermark since the watermark changes the layout of
+the generated image and semantically hidden in it. It has demonstrated strong
+robustness against regeneration attacks [50] and various other image transformations [1, 41], credited to the meticulously designed tree-ring pattern. However,
+previous research only studies its performance in the verification task, which
+aims at distinguishing between watermarked and unwatermarked images. It’s
+still unclear if Tree-Ring can be used to distribute multiple distinct keys and
+distinguish between them, a.k.a. watermark identification, which is crucial for
+source tracing and user attribution. Will Tree-Ring still be strong and robust as
+in the verification task? In this work, we will explore and answer this question.
+We start by studying the source of Tree-Ring’s robustness under verification
+setting. For the first time, we uncover that the robustness of Tree-Ring stems not
+only from the carefully designed tree-ring pattern but also from the unintentionally introduced distribution shift during watermark imprinting. Such shift makes
+a big difference, especially in its robustness to Rotation and Crop/Scale image
+transformations, which cannot be handled by tree-ring’s pattern design. More
+importantly, this overlooked power does not help in the identification scenario,
+because different watermarks experience the same shift.
+We further evaluate Tree-Ring in the identification task and surprisingly find
+that Tree-Ring struggles to distinguish between even dozens of different keys.
+Identification accuracy is reported in Tab. 2. The disappearance of the extra
+power of distribution shift has clearly exposed more design flaws in Tree-Ring.
+First, we find that tree-ring patterns are not discriminative enough to distinguish
+between different keys. This results in Tree-Ring’s bad accuracy under various
+attacks or even under the clean setting. Meanwhile, the defective imprinting
+process leads to the injection of broken watermarks, further weakening its distinguishing ability. In addition, without the help of distribution shift, Tree-Ring
+is completely incapable of handling rotation and crop/scale transformations.
+Identification accuracy under these attacks is close to zero.
+In order to address the above issues, we propose RingID for enhanced identification capability. It bases on a novel Multi-Channel Heterogeneous watermarking
+RingID: Enhanced Multi-Key Identification 3
+framework, which can amalgamate distinctive advantages from different types
+of watermarks to resist to various kinds of attacks. Coupled with discretization
+and lossless imprinting methods, RingID gains substantial improvement on distinguishing ability. What’s more, for the specific attack such as rotation, we
+locate the flaws in Tree-Ring’s original design and propose systematic solutions,
+which improves the identification accuracy under rotation from nearly 0 to 0.86.
+To summarize our contributions:
+1. For the first time, we elucidate how the unintentional introduction of distribution shift substantially contributes to Tree-Ring’s robustness. We demonstrate this effect from both mathematical and empirical perspectives.
+2. We systematically explore Tree-Ring’s performance in the identification scenario and reveal its limitations through comprehensive analysis.
+3. We present RingID, a systematic solution that significantly enhances watermark verification and identification, delivering impressive results. The verification AUC improves from 0.975 to 0.995, while the identification accuracy
+rises from 0.07 to 0.82.
+2 Related Work
+2.1 Diffusion Models
+Diffusion models [12, 20, 34] signify a swiftly advancing category of generative
+models. They define a forward diffusion process that gradually add small amount
+of Gaussian noise to the input data and learn to recover the clean data from the
+distortion [20]. Diffusion models initially demonstrate huge potential in generating high-resolution images [20,35], resulting in globally recognized products like
+Midjourney [27], DALL-E [3, 29] and StableDiffusion [32]. Thereafter, they are
+broadly applied to modeling various types of data, e.g. video [4,17,33,36,42,47],
+audio [21], 3d object [24, 30], humans [7, 8, 39, 53], etc.
+2.2 Watermarking Diffusion Models
+When it comes to watermarking diffusion models, there are two different types
+of objectives: watermarking model weights [2, 25, 40, 48, 51] or generated content [6, 14, 38, 46, 49, 52]. Model weights watermarking methods aim to protect
+the intellectual property of the model itself and identify whether another model
+is an instance of plagiarism. While content watermarking methods protect the
+copyright of generated images [13, 45, 46] or videos [26, 49] by adding imperceptible perturbations onto pixels. They either imprint the watermark into the
+frequency via DFT [22], DCT [9,11] and wavelet transformations [10,43], or directly onto pixels via an encoder network [16,38,44,52]. Recently, Tree-Ring [41]
+proposes to imprint a tree-ring watermark pattern into the initial diffusion noise.
+It demonstrates strong robustness to various attacks. In this work, we delve into
+Tree-Ring, uncovering its source of power in watermark verification and pinpointing its vulnerability in identifying multiple keys. Subsequently, we introduce
+RingID, a systematic solution fortified with enhanced identification capability.
+4 H. Ci et al.
+3 Preliminaries
+3.1 Threat Model
+Model Owner: The owner of the diffusion model provides the image generation
+service through API access. He would like to imprint imperceptible watermarks
+into every generated image for copyright protection and source tracking. Given
+an arbitrary image, the model owner would like to check whether the image contains his own watermark (a.k.a. Watermark Verification) and which watermark
+it is if he distributes multiple different watermarks (a.k.a. Identification). The
+goal of the model owner is to ensure high verification and identification accuracy
+regardless of any image transformations.
+Attacker: The attacker uses the model owner’s service to generate an image.
+He attempts to apply various image transformations such as rotation and JPEG
+compression to disrupt the watermark, in order to evade the detection and identification check of the model owner. Subsequently, he can claim ownership of the
+image and profit from it illegally
+3.2 Notation
+We denote the initial diffusion noise by xT , and its frequency counterpart after
+FFT by XT . T is the diffusion step. Sometimes we may omit the subscript T for
+simplicity. We denote the real part, imaginary part and conjugate symmetry of
+XT by Xre, Xim, and Xcs. In the context of StableDiffusion [32], XT ∈ Rh×w×c
+has 4 channels C = {0, 1, 2, 3}. We denote the watermarked channels by Cw, where
+Cw ⊂ C. We denote the imprinted key by w, the recovered key at detection time
+by wˆ, and the null watermark extracted from the unwatermarked image by wˆ∅.
+We use W = {w1, w2, . . .} to denote a set of different keys. |W| is its capacity.
+3.3 Task Formulation: Verification vs. Identification
+In this section, we formulate the verification and identification task following
+the problem statement of Tree-Ring [41]. The task of watermark verification is
+to detect the existence of watermarks. Verification algorithms attempt to distinguish between watermarked images carrying key wˆ and unwatermarked images
+carrying null key wˆ∅. More formally, verification can be formulated as distinguishing between the distance to the reference key w: d ( ˆw, w) ̸= d ( ˆw∅, w). In
+Tree-Ring, d is chosen to be ℓ1 distance and w is the watermark to be imprinted.
+When a set of different keys wi ∈ W are distributed, the goal of watermark
+identification is to find the best match for the recovered key wˆ among all candidates in W, i.e. ID ( ˆw) = arg mini
+[d ( ˆw, wi)]. In practice, different users are
+usually assigned different keys. Thus, each generated image can be source tracked
+and attributed to a unique user via watermark identification.
+RingID: Enhanced Multi-Key Identification 5
+FFT
+IFFT
+Imaginary
+Spatial Domain
+Fourier Domain
+Tree-Ring
+𝑥𝑇 𝑋𝑇 Real
+Watermark
+Rounder Multi-Channel
+RingID
+Discretization Spatial Shift Rand
+Lossless Imprinting
+Prototype
+𝑤
+DDIM
+Inversion
+𝑋
+෠
+𝑇
+− < 𝜏
+Watermark
+Watermark
+Watermark
+Distortions
+Fig. 2: Framework of the watermarking process. RingID introduces a series of approaches that can help to imprint a lossless and robust watermark. In contrast, TreeRing injects a lossy and less robust watermark.
+4 Delve into Tree-Ring Watermarking
+In this section, we will reveal why Tree-Ring [41] is robust to various image transformations, even some of them are not considered by design. We further evaluate
+Tree-Ring in the multi-key identification task and pinpoint its vulnerabilities.
+4.1 Recap of Tree-Ring
+Tree-Ring [41] originally studies the verification setting. Its goal is to distinguish
+watermarked images from non-watermarked images. As illustrated in Fig. 2,
+Tree-Ring transforms the initial diffusion noise xT into the frequency XT and
+injects a tree-ring pattern w into the center of XT , where the value of each ring
+in pattern w is sampled from Gaussian. It then transforms the watermarked XT
+back to the spatial domain, retaining only the real part to feed the diffusion
+network for image generation. Notably, the accompanying imaginary part is discarded to be compatible with the network input. For detection of the watermark,
+Tree-Ring inverts the diffusion process to estimate xT from an image, transforms
+it to the frequency domain, and extracts the watermark pattern wˆ. Similarly,
+nonsense pattern wˆ∅ can be extracted from the non-watermarked image. TreeRing distinguishes between these two ℓ1-to-reference distances: ∥wˆ − w∥1 and
+∥wˆ∅ − w∥1 to determine whether an image is watermarked or not.
+4.2 Distribution Shift in Watermarking
+Tree-Ring’s detection algorithm bases on the intuition that the recovered pattern
+wˆ from a watermarked image should match the injected reference pattern w
+6 H. Ci et al.
+ℓ1-to-reference
+ℓ1-to-reference
+Identification
+Verification
+Distribution shifts
+ℓ1-to-reference
+Distribution keeps
+ALL distributions shift
+0
+0.5
+1
+Rot C&S
+0
+0.5
+1
+Rot C&S
+0
+0.5
+1
+Rot C&S
+Tree-Ring
+AUC
+AUC
+ACC
+Tree-Ring
+Watermark1 Watermark2 Watermark3
+Watermark No Watermark
+separable
+overlapped
+inseparable
+discard imag Fig. 3: The effect of distribution shift in both verification and identification tasks.
+Discarding the imaginary part during watermark imprinting causes the distribution
+shift in ℓ1 distance. Distribution shift aids verification but not identification.
+to some extent, leading to a smaller ℓ1-to-reference distance, i.e. ∥wˆ − w∥1 <
+∥wˆ∅ − w∥1.
+However, we have discovered that apart from the pattern matching, another
+crucial factor contributes to the separation of ∥wˆ − w∥1 v.s. ∥wˆ∅ − w∥1. This
+factor is the distribution shift introduced by discarding the imaginary part during
+the watermark injection process, which is highlighted in Fig. 2. This affects all
+watermarked images, further reducing the expectation of E [∥wˆ − w∥1]. In other
+words, it shifts the distribution of ∥wˆ − w∥1 towards a smaller value, making it
+easier to distinguish between ∥wˆ − w∥1 and ∥wˆ∅ − w∥1.
+Mathematically, we prove that the shift factor is
+√
+3
+2
+in a general and simplified setting. Let wˆn denote the recovered watermark that has never been shifted,
+thus we have the following:
+ \mathbb {E}\left [\lVert \hat {w} - w\rVert _1\right ] = \frac {\sqrt {3}}{2}\mathbb {E}\left [\lVert \hat {w}_{n} - w\rVert _1\right ]. (1)
+Detailed derivation is elaborated in Appendix A. Actually, we find any operation leading to a sufficient distribution shift can be considered a good standalone watermarking approach. We demonstrate the operation of discarding the
+imaginary part performs well on its own in Appendix B.
+Effect in Different Tasks and Attacks Fig. 3 illustrates the effect of distribution shift under different tasks. In Verification, it helps distinguish between
+watermarked and non-watermarked images. Next, we go one step further and
+consider the situation when the image undergoes different attacks like JPEG or
+Resize. If the tree-ring pattern itself can cope with a certain attack, the improvement brought by the distribution shift will be small, because the two distributions are already separable even without the help of shift. On the contrary, if
+the tree-ring pattern itself cannot deal with a certain attack, the improvement
+brought by the distribution shift will be significant. Empirically (Appendix A.6),
+RingID: Enhanced Multi-Key Identification 7
+we find distribution shift helps a lot under Rotation and Crop/Scale attacks. This
+implies that the original design of tree-ring cannot handle these two attacks.
+When it comes to Identification, things are a little different. Since different watermarks experience the same distribution shift, discarding the imaginary part
+doesn’t help distinguishing them.
+This sparks our curiosity about Tree-Ring’s performance in identification,
+since distribution shift doesn’t help and identification is more difficult. We would
+like to know if Tree-Ring still works under Rotation and Crop/Scale attacks. In
+the next section, we will explore these questions.
+4.3 Is Tree-Ring Good at Identification?
+We report the performance of Tree-Ring when identifying different numbers of
+keys in Tab. 2. Tree-Ring struggles to identify as few as 32 keys. What’s more,
+identification accuracy is nearly zero under Rotation and Crop/Scale attacks.
+We summarize 2 reasons as follows: (1) Distribution shift doesn’t help. As
+tree-ring watermark cannot handle Rotation and Crop/Scale attacks, identification accuracy under these attacks drops to nearly zero. (2) Tee-ring pattern
+doesn’t have enough distinguishing ability. Since identification is more difficult
+than verification, poor distinguishing ability results in poor performance under
+most attacks or even under no attack setting.
+4.4 Why is Tree-Ring Vulnerable to Rotation and Crop/Scale?
+All previous experimental results and analysis show one thing, tree-ring pattern
+cannot handle these two attacks. In this section, we will see what happens.
+Vulnerable to Crop & Scale Scaling an image by a factor of a corresponds
+to compressing the frequency spectrum X [u, v] in both magnitudes and positions: 1
+a2 X
+
+u
+a
+,
+v
+a
+
+. Cropping an image modulates the frequency magnitudes by
+a sinc function. It is straightforward that these transformations easily disrupt
+the tree-ring pattern on frequency domain. As shown in Fig. 4(e), the pattern is
+completely disrupted.
+Vulnerable to Rotation Although Tree-Ring is designed as ring patterns to
+seek rotation robustness, we find the existing design ignores many details, leading to no rotation robustness. In short, a combination of corner cropping when
+rotating, a lossy injection process, and the rotationally asymmetric shape cause
+the problem. We will explain in detail and propose solutions in Sec. 5.2.
+5 RingID: Enhanced Watermarking for Identification
+In this section, we show how our proposed method RingID advances in identifying multiple distinct keys. RingID originates from Tree-Ring but incorporates
+systematic enhancements. We introduce a multi-channel heterogeneous watermarking framework, a discretization approach and a method of lossless imprinting to generally improve its distinguishing ability. We also discuss a series of
+designs regarding stronger rotation robustness and increased capacity.
+8 H. Ci et al.
+5.1 Multi-Channel Heterogeneous Watermarking
+Multi-channel heterogeneous (MCH) watermarking serves as a general framework to comprehensively improve watermarking robustness to a battery of attacks. Intuitively, we imprint different types of watermarks on different channels
+of the initial noise to amalgamate their distinctive advantages, as illustrated in
+Fig. 1. During matching, we calculate the minimum of channel-wise ℓ1 distance
+to the reference watermark for all watermarked channels:
+ \label {eq:heter_watermark} \text {ID}\left (\hat {w}\right ) = \argmin _{i} \left \{ \min _{c \in C_w}\left [\lambda _c \lVert \hat {w}^c - w^c_i\rVert _1 \right ] \right \} (2)
+where c denotes the channel index and traverses all watermarked channels Cw.
+i denotes the index of candidate reference watermarks. λc is a channel-wise
+normalizing factor.
+Eq. (2) bases on the intuition that if a watermark is robust to a certain
+attack, then its distance from the ground-truth reference is smaller than that of
+other watermarks that are not robust. Ideally, it enables adaptive selection of the
+most robust watermark under different attacks. Notably, the total capacity of
+MCH is the minimum of each watermark. Therefore, it’s recommended to use a
+watermark pattern with sufficient capacity on each channel. At the same time, in
+order to reduce the impact on the generation quality, we need to carefully select
+the type of watermarks for combination. We find the Gaussian noise pattern is a
+perfect candidate. It has infinite capacity and the same distribution as the initial
+noise. Meanwhile, it has good robustness to non-geometric attacks [41] and is
+complementary to the tree-ring pattern. So RingID explores the combination
+of a Gaussian noise watermark and a tree-ring watermark. Empirical study in
+Sec. 6.3 demonstrates that this combination is able to perfectly amalgamate
+unique advantages from the noise and ring watermark.
+5.2 Being Invariant to Rotation
+Although the tree-ring pattern is designed to be rotationally symmetric, it exhibits unexpected vulnerability to rotation as shown in Tab. 2. Below, we identify
+the causes of the issue and propose a series of measures to address it.
+Spatial Shift to Avoid Corner Cropping We visualize the imprinted treering watermark in spatial domain in Fig. 4(c). Due to the properties of FFT,
+tree-ring patterns in the frequency tends to exhibit concentrated energy in the
+four corners in the spatial domain, rendering them vulnerable to cropping during rotation. We propose to circularly shift the watermark pattern in the spatial
+domain to the center of the image, thus the majority of watermark information is kept while rotating. For an N × N latent image, we circularly shift the
+pattern by N
+2
+pixels in both width and height dimension. This is equivalent to
+directly multiplying the frequency watermark with a chessboard pattern given
+by H[u, v] = e
+j
+π
+2
+(u+v) = (−1)u+v
+. The change of the watermark can be clearly
+RingID: Enhanced Multi-Key Identification 9
+Before
+Frequency
+After
+Frequency
+(b) Rounder Ring
+Before
+Spatial
+Frequency
+After
+Spatial
+Frequency
+(c) Spatial Shift
+Before
+Spatial
+Frequency
+After
+Spatial
+Frequency
+(e) Crop & Scale
+Before
+Frequency
+After
+Frequency
+(a) Discretization
+Designed
+Frequency
+Frequency
+Imprinted
+Frequency
+Frequency
+-
+(32, 32)
+At Center Elsewhere
+(d) Lossless Imprinting
+Error
+=
+=
+-
+Fig. 4: Detailed illustration of different acts and their impacts. (a) Discretization:
+Discretize values to ±α for each ring, increasing the distinguishing ability of the watermark. (b) Rounder ring: Render smoother edges and reduce artifacts. Increase
+rotational robustness. (c) Spatial Shift: Shift energy on the corners to the center,
+avoiding potential cropping during rotation. (d) Lossless Imprinting: Ensure the
+imprinted pattern the same as the original design. (e) Crop & Scale: Zooming in
+the spatial domain compresses the imprinted pattern in the frequency domain, causing
+pattern mismatch and hinders identification.
+observed in Fig. 4(c). Although spatial-shifting helps a lot for rotation invariance, we noticed that this often leads to the generation of circular artifacts at
+the center of the image. Keeping generation quality in mind, we further multiply
+the shifted pattern by a factor η to suppress the peak at the center. η trades-off
+the robustness, as smaller η weakens the watermark pattern. In practice, we find
+η ∈ [0.8, 0.9] strikes a good balance between image quality and robustness.
+Lossless Imprinting The operation of discarding the imaginary part during
+watermarking not only shifts the distribution of ℓ1-to-reference, but also disrupt
+the pattern, resulting in the loss of its rotational symmetry. Fig. 4(d) visualizes
+the actually carried pattern. More concretely, recall from Fig. 2, when the watermarked noise X[u, v] is transformed back to the spatial x[m, n], only its real
+part xre[m, n] is kept for image generation. From a frequency domain perspective, this is equivalent to generation with its conjugate symmetry Xcs[u, v], which
+is not necessarily equal to X[u, v]. To leverage the rotational symmetry of the
+10 H. Ci et al.
+ring patterns, we attempt to eliminate the information loss during imprinting by
+solving X[u, v] = Xcs[u, v]. The results indicate that Xre[u, v] should be an even
+function and Xim[u, v] should be an odd function about the Fourier center. To
+satisfy these constraints, we imprint the tree-ring pattern only in the real part
+and leave the imaginary part blank. We also align the center of the tree-ring
+pattern with the Fourier center (32, 32). Originally, the tree-ring pattern was
+put at (31, 32) and imprinted on both the real and the imaginary.
+Making A Rounder Ring Rings are originally determined by locating pixels
+equidistant from a give circle center (x0, y0): (x − x0)
+2 + (y − y0)
+2 = r
+2
+. We
+observed that this simple approach does not yield a well-rounded circular ring,
+particularly in images with lower resolutions like initial noise of shape 64 × 64.
+Artifacts and alias are shown in Fig. 4(b). Although it is centrosymmetric, it
+lacks rotational symmetry. Well, the solution is quite straightforward: drawing
+a rounder ring. There are a number of tools that can help draw a much rounder
+ring. Here, we employ a very simple idea to get a rounder ring. We place a white
+pixel on a black background at a distance r from the rotation center. By rotating
+the low resolution image 360 degrees and recording the trajectory of this pixel,
+we obtain a rounder ring with a radius of r. Despite its simplicity, empirical
+results in Tab. 3 show that it is crucial for rotational invariance.
+5.3 Discretization for Enhanced Distinguishability
+Tree-Ring samples values for each ring from a Gaussian distribution to keep consistency with the distribution of initial noise. We find that this random sampling
+makes it exceedingly challenging to distinguish between two keys. To address this
+issue, we propose a discretization approach, specifying that the value for each
+ring can only be either α or −α, illustrated in Fig. 4(a). Consequently, the watermark pattern for n rings has a capacity of 2
+n. While this seemingly reduces
+the upper limit of watermark capacity, it significantly enhances its valid capacity, ensuring optimal utilization of all available slots. Our experiments reveal
+that setting α as the standard deviation of the initial noise ensures substantial
+distinguishablity between different keys while reducing the impact on generation
+quality to a small level.
+5.4 Increasing Capacity
+We consider two simple approaches to increase capacity: adjusting the number
+of rings in a single channel or imprinting rings in extra channels. We evaluate the
+advantages and drawbacks of both methods in Sec. 6.4. In summary, increasing
+the number of rings |R| in a single channel can effectively boost capacity, leading to 2
+|R| keys. However, excessive ring count results in a noticeable decline in
+robustness and generation quality. Imprinting watermarks in multiple channels
+exponentially increases capacity by n
+|c|
+, where c is number of channels and n is
+RingID: Enhanced Multi-Key Identification 11
+the capacity of a single channel. However, it’s likely to introduce ring-like artifacts in the center of generated images. Therefore, we opt to place the watermark
+in a single channel and enhance capacity by adjusting the range of rings.
+6 Experiment
+6.1 Experimental Setup
+Following Tree-Ring [41], we experiment with the state-of-the-art opensource
+diffusion model StableDiffusion-V2 [32]. By default, RingID imprints a tree-ring
+watermark with radius 3-14 on the channel 3 of the initial noise and a Gaussian
+noise watermark on channels 0. We adopt discretization (to 64 and -64), spatial
+shift, rounder drawing, and lossless imprinting as ordered in Fig. 2. We report
+the ROC-AUC between 1000 watermarked and 1000 unwatermarked images as
+the verification metric. In identification, we report identification accuracy with
+different numbers of keys. Evaluation is performed under various image distortions, following the original setup of Tree-Ring [41], i.e., JPEG 25, rotation 75◦
+,
+75% random C&S, blur kernel 8, noise std 0.1, brightness [0, 6]. We assess the
+generation quality with CLIP scores [31] by OpenCLIP-ViT/G [5] between the
+generated image and the prompts to measure text-image alignment, and Frechet
+Inception Distance (FID) [19] to quantify the similarity between generated and
+natural images. we generate 5000 images and evaluate FID on the COCO 2017
+training dataset [23]. We set both generation and inversion steps to 50.
+6.2 Comparison with Baselines
+Robustness In verification (Tab. 1), both RingID and Tree-Ring perfectly distinguish between watermarked and unwatermarked images when no attacks are
+performed, achieving AUC score of 1. However, RingID exhibit stronger robustness to various image distortions than Tree-Ring, achieving near-perfect average
+AUC score, even though it is not optimized for verification. In the more challenging identification task, (Tab. 2), RingID significantly outperforms Tree-Ring.
+When identifying 32 keys, Tree-Ring’s average identification accuracy (excluding C&S) is 0.465, while RingID’s accuracy reaches up to 0.992. As the number
+of keys increases to 2048, this gap widens drastically (0.077 v.s. 0.942), further
+highlighting RingID’s superior robustness and larger valid key capacity.
+Notably, both methods struggle with the C&S distortion in identification
+(Tab. 2). This aligns with our analysis in Sec. 4.2. Scaling in the spatial domain
+causes inverse scaling in the frequency domain, leading to pattern disruption
+and rendering identification challenging under such distortions. However, in verification, with the help of distribution shift, watermarked images can still be
+effectively distinguished from unwatermarked ones under C&S. Both Tree-Ring
+and RingID achieve average AUC higher than 0.97.
+Image Quality RingID achieves strong performance without compromising the
+generation quality. It maintains comparable text-image alignments with TreeRing. Both methods achieve similar CLIP scores (0.364 v.s. 0.365). RingID obtains an FID of 26.13, which is also comparable to Tree-Ring’s FID of 25.93.
+12 H. Ci et al.
+Table 1: Comparison with Tree-Ring in the verification task. The table shows the
+ROC-AUC values under various image distortions and CLIP Scores.
+Methods Ring Radius Clean Rotate JPEG C&S Blur Noise Brightness Avg CLIP Score
+Tree-Ring 0-10 1.000 0.935 0.999 0.961 0.999 0.944 0.983 0.975 0.364
+RingID 0-10 1.000 1.000 1.000 0.979 0.994 0.969 0.991 0.990 0.359
+3-14 1.000 1.000 1.000 0.987 0.989 0.998 0.994 0.995 0.365
+Table 2: Comparison with Tree-Ring in the identification task. We report the identification accuracy under various distortions for different numbers of keys.
+Methods #Keys Clean Rotate JPEG C&S Blur Noise Brightness Avg AvgnoC&S
+Tree-Ring
+32 0.790 0.020 0.420 0.040 0.610 0.530 0.420 0.404 0.465
+128 0.450 0.010 0.120 0.020 0.280 0.230 0.170 0.183 0.210
+2048 0.200 0.000 0.040 0.000 0.090 0.070 0.060 0.066 0.077
+RingID
+32 1.000 1.000 1.000 0.530 0.990 1.000 0.960 0.926 0.992
+128 1.000 0.980 1.000 0.280 0.980 1.000 0.940 0.883 0.983
+2048 1.000 0.860 1.000 0.080 0.970 0.950 0.870 0.819 0.942
+6.3 Ablation Study
+Components of RingID Tab. 3 ablates all proposed components of RingID.
+We can find that all designs are crucial for the final success of RingID. Spatial
+shift, lossless imprinting, and discretization play a significant role in the robustness of rotation. While the use of rounder rings also increase the accuracy by
+approximately 40% (from 0.620 to 0.860). Notably, spatial shift sacrifices the
+robustness to blur and brightness attacks for rotation robustness.
+Heterogeneous Watermarking RingID employs the combination of a Gaussian noise watermark and a ring watermark. Here, we ablate the choice of imprinting the noise watermark on different channels. By comparing the first 3
+rows of Tab. 4, we find that heterogeneous watermarking can effectively combine
+the advantage from both the noise watermark and the ring watermark. Among
+single-channel configurations, imprinting noise watermark on channel 0 (0.819)
+achieves the best performance. The combination of channels 0 and 1 yields the
+highest accuracy among all trials. Interestingly, imprinting noise watermarks on
+all available channels (0, 1, 2) decrease the accuracy from 0.830 to 0.807.
+6.4 Discussion
+Where is the Best Place to Put Rings? We could imprint all rings on one
+channel or distribute them evenly across multiple channels. In Tab. 5, we fix the
+total number of rings to 12 and distribute them to 1-4 channels. we can find
+that performance drops as we distribute rings to more channels. What’s more,
+imprinting rings on multiple channels cause artifacts to appear more frequently
+(shown in Appendix C). So given fixed capacity, it’s better to imprint all rings
+on a single channel. This raises another question: what are the optimal inner
+RingID: Enhanced Multi-Key Identification 13
+Table 3: Ablation study on the effect of each proposed module in RingID. We report
+the identification accuracy for 2048 keys when removing individual components.
+Settings Clean Rotate JPEG C&S Blur Noise Brightness Avg
+RingID 1.000 0.860 1.000 0.080 0.970 0.950 0.870 0.819
+- Spatial Shift 1.000 0.000 1.000 0.050 0.990 0.930 0.940 0.701
+- Lossless Imprinting 1.000 0.010 0.970 0.160 0.950 0.980 0.830 0.700
+- Rounder Ring 1.000 0.620 0.990 0.100 0.890 0.970 0.850 0.774
+- Discretization 0.980 0.120 0.380 0.020 0.450 0.650 0.390 0.427
+- Heterogeneous 1.000 0.820 0.940 0.030 0.960 0.710 0.720 0.740
+Table 4: Ablation study on multi-channel heterogeneous watermarking. This table
+reports the identification accuracy when the noise watermark is imprinted on different
+channels (abbr. CHs). “-” means the watermark is not imprinted.
+Ring CHs Noise CHs Clean Rotate JPEG C&S Blur Noise Brightness Avg
+- 0 1.000 0.000 1.000 0.170 0.990 0.950 0.920 0.719
+3 - 1.000 0.820 0.940 0.030 0.960 0.710 0.720 0.740
+3 0 1.000 0.860 1.000 0.080 0.970 0.950 0.870 0.819
+3 1 1.000 0.820 1.000 0.130 1.000 0.880 0.770 0.800
+3 2 1.000 0.840 0.980 0.100 0.920 0.990 0.790 0.803
+3 0, 1 1.000 0.850 0.950 0.150 0.990 0.990 0.880 0.830
+3 0, 2 1.000 0.840 0.990 0.120 0.950 0.980 0.870 0.821
+3 0, 1, 2 1.000 0.830 0.960 0.160 0.930 0.980 0.790 0.807
+and outer radii if all rings are placed on a single channel? From Tab. 6 we can
+see that 3-14 forms a good choice for 11 rings with capacity 2048. The optimal
+ring radius also varies for different ring numbers.
+More Keys We would like to explore whether RingID can handle a larger
+number of keys. Fig. 5 shows the average identification accuracy under various
+attacks v.s. number of keys. We observe that RingID maintains good accuracy
+even with a large number of keys. And identification accuracy linearly decreases
+as the number of keys exponentially increase.
+Table 6: Influence of ring radius on identification accuracy and text-image alignment.
+Radius #Keys Acc CLIP Score Radius #Keys Acc CLIP Score Radius #Keys Acc CLIP Score
+1-6 32 0.886 0.363 1-9 256 0.819 0.362 1-12 2048 0.786 0.361
+2-7 32 0.876 0.366 2-10 256 0.856 0.358 2-13 2048 0.804 0.361
+3-8 32 0.897 0.365 3-11 256 0.850 0.362 3-14 2048 0.819 0.368
+4-9 32 0.897 0.368 4-12 256 0.847 0.363 4-15 2048 0.813 0.363
+5-10 32 0.881 0.361 5-13 256 0.839 0.360 5-16 2048 0.803 0.360
+14 H. Ci et al.
+Table 5: Distributing 12 rings across different number of channels (#CHs). This
+table reports the average identification
+accuracy and CLIP Score.
+Ring Radius #CHs Avg CLIP Score
+3-15 1 0.740 0.357
+3-9 2 0.737 0.351
+3-7 3 0.664 0.351
+3-6 4 0.544 0.340
+0.65
+0.7
+0.75
+0.8
+0.85
+0.9
+0.95
+1
+32 128 512 2048 8192 32768
+Avg Identification Acc
+Number of Keys
+ Avg
+ Avg(noCS)
+Fig. 5: Average identification accuracy
+v.s. number of keys.
+Tree
+-Ring No Watermar
+k RingID
+Fig. 6: Qualitative results. The subtle changes in image layouts show that both TreeRing and RingID embed watermarks into the image’s semantic content.
+6.5 Qualitative Results
+As shown in Fig. 6, both RingID and Tree-Ring watermarking can generate
+images of good visual quality. Unlike low-level watermarking techniques, both
+RingID and Tree-Ring cause subtle changes in the image layout. However, RingID
+generates images with layout that is closer to the unwatermarked image. We owe
+this to avoiding watermarking on the low-frequency part (radius 0-3).
+7 Conclusion and Limitation
+We conduct a comprehensive investigation on Tree-Ring Watermarking, revealing
+its limitations in identifying multiple keys. We then propose RingID to enhance
+identification capability.
+Limitation: Under multi-key identification, one limitation is that both TreeRing and our RingID are vulnerable to cropping and scaling attacks. Future
+work may explore other transform domains to resist these attacks.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+A Distribution Shift in Watermarking
+The operation of discarding imaginary part during the watermarking process
+results in distribution shift in ℓ1-to-reference distance for any watermarked noise.
+In the following, we first demonstrate this from a mathematical view. In order
+to present this conclusion more clearly and concisely, we consider a more general
+case where all watermark pixels are i.i.d. sampled from the same watermark
+distribution as Tree-Ring but without a specific pattern for math simplicity.
+Then we study the more complicated real scenario by empirical experiments.
+A.1 Preliminaries
+We following the notation convention of [15,28], representing 2D spatial domain
+signals using lower case letters indexed by m, n (e.g. x[m, n]) and 2D frequency
+domain signals using upper case letters indexed by u, v (e.g. X[u, v]). We use F
+and F
+−1
+to denote DFT and inverse DFT, respectively. The energy of a signal
+X[u, v] is defined as
+ \mathcal {E}_X = \sum _{u,v} \lvert X[u,v]\rvert ^2. (3)
+A signal can be represented as the sum of a real-valued signal and a complexvalued signal, X[u, v] = Xre[u, v] + jXim[u, v]. It can also be represented as
+the sum of a conjugate symmetric signal and a conjugate asymmetric signal,
+X[u, v] = Xcs[u, v] + Xca[u, v]. If a spatial domain signal is real-valued, then its
+frequency-domain counterpart is conjugate symmetric [28]:
+ \mathcal {F}\left \{x_\mathfrak {re}[m, n]\right \}=X_\text {cs}[u, v]=\frac {X[u, v]+X^*[u, v]}{2}, \label {eq:real-cs} (4)
+where X∗
+[u, v] = Xre[u, v] − jXim[u, v] is the conjugate of X[u, v].
+A.2 Tree-Ring’s Pipeline
+As visualized in Fig. 7, Tree-Ring proposes to add a watermark to a frequency
+domain initial latent noise X[u, v] (of size N × N) by substituting the value
+of M pixels within a watermark region mask M. For these watermarked pixels
+X[u, v] ∈ M (corresponds with w used in the paper main content), Tree-Ring
+samples their values from a circularly-symmetric complex normal distribution
+NC
+
+0, N2
+
+= N
+
+0,
+N2
+2
+
++jN
+
+0,
+N2
+2
+
+. Other non-watermarked pixels X[u, v] ∈/
+M, individually, also follow this distribution, but the difference is that in TreeRing’s context, X[u, v] ∈ M/ are spatially ensured to be conjugate symmetric
+X[u, v] = Xcs[u, v], while X[u, v] ∈ M does not have such a guarantee. During
+the analysis, we view each pixel as a random variable.
+After adding the watermark to X[u, v], Tree-Ring transforms it back to the
+spatial domain, x[m, n] = F
+−1 {X[u, v]}. The obtained x[m, n] would typically
+have both the real and imaginary parts. However, since diffusion denoising would
+20 H. Ci et al.
+Inverse DFT
+Discard
+Imaginary
+𝑋 𝑢, 𝑣 ∉ ℳ~𝒩𝐶 0, 𝑁
+2
+100% Energy
+𝑥 𝑚, 𝑛
+Spatial Domain
+𝑁
+×
+𝑁 Frequency Domain
+𝑁
+×
+𝑁
+DFT
+𝑋
+′ 𝑢, 𝑣 ∉ ℳ~𝒩𝐶 0, 𝑁
+2
+𝑋
+′ 𝑢, 𝑣 ∈ ℳ
+~𝒩𝐶 0, 𝑁
+2/2
+50% Energy
+100% Energy
+𝑥
+′ 𝑚, 𝑛
+𝑁
+2 − 𝑀 non-watermarked
+Total 𝑁
+2 pixels
+𝑀 watermarked
+Count of Pixels
+𝑋 𝑢, 𝑣 ∈ ℳ
+~𝒩𝐶 0, 𝑁
+2
+100% Energy
+Watermark
+region mask
+ℳ
+Fig. 7: Visualisation of the analysis. Tree-Ring discards the imaginary part of the
+spatial domain initial latent noise x[m, n] for diffusion denoising, but this operation
+discards half of the energy from all watermarked frequency-domain pixels. These pixels
+also have their variance reduced by half.
+always start with a purely-real noise signal, Tree-Ring discards the imaginary
+part of x[m, n], turning it into x
+′
+[m, n] = xre[m, n], whose frequency domain
+counterpart X′
+[u, v] = F {x
+′
+[m, n]} is the conjugate symmetric part of the original watermarked signal, X′
+[u, v] = Xcs[u, v].
+A.3 Distribution Shift in Watermarked Region
+Eq. (4) implies that the frequency domain signal X′
+[u, v] satisfies:
+ X'[u, v]=\mathcal {F}\left \{x'[m, n]\right \}=\mathcal {F}\left \{x_\mathfrak {re}[m, n]\right \}=X_\text {cs}[u, v]=\frac {X[u, v]+X^*[-u, -v]}{2}.
+(5)
+For pixels within the watermark region X′
+[u, v] ∈ M, X[u, v] and X∗
+[−u, −v]
+are uncorrelated, and they both follow a circularly-symmetric complex normal
+distribution NC
+
+0, N2
+
+. Viewing X′
+[u, v] as a random variable, its distribution
+is given by
+ X'[u, v]\sim \frac {1}{2}\left (\mathcal {N_C}\left (0, N^2\right )+\mathcal {N_C}\left (0, N^2\right )\right ) =\mathcal {N_C}\left (0, \left (\frac {1}{2}\right )^2\cdot 2N^2\right )=\mathcal {N_C}\left (0, \frac {N^2}{2}\right ).
+(6)
+Oppositely, pixels outside the watermark region X′
+[u, v] ∈ M/ are conjugate
+symmetric, which implies that X′
+[u, v] = Xcs[u, v] = X[u, v] ∼ NC
+
+0, N2
+
+. The
+distribution of non-watermarked pixels X′
+[u, v] ∈ M/ are unchanged.
+RingID: Enhanced Multi-Key Identification 21
+This shows that discarding the imaginary part from the spatial domain pixels x[m, n] changes the distribution of the frequency domain pixels within the
+watermark region mask M from X[u, v] ∼ NC
+
+0, N2
+
+to X′
+[u, v] ∼ NC
+
+0,
+N2
+2
+
+.
+A.4 From Energy’s Viewpoint
+Discarding the imaginary part of x[m, n] also causes watermarked region X′
+[u, v] ∈
+M to lose half of its energy. Since X[u, v] ∼ NC
+
+0, N2
+
+, |X[u, v]|
+2 ∼ N2χ
+2
+(1).
+Therefore, the expected energy of X[u, v] ∈ M is given by
+ \mathbb {E}\left [\sum _{u, v\in \mathcal {M}}\lvert X[u, v]\rvert ^2\right ] =(N^2-M)\mathbb {E}_{u, v\in \mathcal {M}}\left [\lvert X[u, v]\rvert ^2\right ]=(N^2-M)N^2. (7)
+Similarly, |X′
+[u, v]|
+2 ∼
+N2
+2
+χ
+2
+(1) for X′
+[u, v] ∈ M. Therefore, the expected
+energy of X′
+[u, v] ∈ M is given by
+ \mathbb {E}\left [\sum _{u, v\in \mathcal {M}}\lvert X'[u, v]\rvert ^2\right ] =(N^2-M)\mathbb {E}_{u, v\in \mathcal {M}}\left [\lvert X'[u, v]\rvert ^2\right ]=(N^2-M)\frac {N^2}{2}. (8)
+The fraction of energy of X′
+[u, v] ∈ M, compared to X[u, v] ∈ M, is given
+by
+ \eta =\frac {\mathbb {E}\left [\sum _{u, v\in \mathcal {M}}\lvert X'[u, v]\rvert ^2\right ]}{\mathbb {E}\left [\sum _{u, v\in \mathcal {M}}\lvert X[u, v]\rvert ^2\right ]}=\frac {(N^2-M)\frac {N^2}{2}}{(N^2-M)N^2}=\frac {1}{2}, (9)
+So the watermarked region loses half of its energy.
+A.5 Distribution Shift in ℓ1 Distance
+In this section, we clarify the systematic ℓ1-to-reference shift introduced by discarding the imaginary part during the watermark injection process. To simplify
+the math, we assume that the recovered watermark comes from the same distribution as the injected one. We consider four different watermarks ∈ M in
+frequency domain:
+– Xˆ[u, v] ∼ NC(0, N2
+): Recovered watermark that never experience imaginary
+part discarding.
+– Xˆ′
+[u, v] ∼ NC(0,
+N2
+2
+): Recovered watermark that experienced imaginary part
+discarding.
+– Yˆ [u, v] ∼ NC(0, N2
+): Null watermark recovered from unwatermarked images.
+– Z[u, v] ∼ NC(0, N2
+): The reference watermark to imprint.
+22 H. Ci et al.
+Since Xˆ′
+re[u, v] ∼ N 
+0,
+ N
+2
+2
+
+and Zre[u, v] ∼ N 
+0,
+
+√
+N
+2
+2
+
+are both Gaussian, their combination is also Gaussian with summed variance:
+ \left (\hat {X}'_{\mathfrak {re}}[u,v]\pm Z_{\mathfrak {re}}[u,v]\right )\sim \mathcal {N}\left (0, \left (\frac {N}{2}\right )^2+\left (\frac {N}{\sqrt {2}}\right )^2\right )=\mathcal {N}\left (0, \left (\frac {\sqrt {3}}{2}N\right )^2\right ).
+(10)
+And similarly for the imaginary parts. Therefore,
+ \left (\hat {X}'_{\mathfrak {re}}[u,v]\pm Z_{\mathfrak {re}}[u,v]\right )^2+\left (\hat {X}'_{\mathfrak {im}}[u,v]\pm Z_{\mathfrak {im}}[u,v]\right )^2\sim \left (\frac {\sqrt {3}}{2}N\right )^2\chi ^2(2),
+(11)
+where the pdf of a χ
+2
+(2)-distributed random variable is given by:
+ f_{\chi ^2(2)}(x)=\frac {e^{-\frac {x}{2}}}{2\Gamma (1)} (12)
+Hence, the expected ℓ1 distance between Xˆ′
+[u, v] ∈ M and Z[u, v] ∈ M,
+normalised by the count of watermarked pixels M, is given by:
+ \begin {aligned} \mathbb {E}\left [\frac {1}{M}\lVert \hat {X}'-Z\rVert _1\right ] &=\mathbb {E}\left [\frac {1}{M}\sum _{u,v\in \mathcal {M}}\lvert \hat {X}'[u,v]-Z[u,v]\rvert \right ]\\ &=\mathbb {E}\left [\frac {1}{M}\sum _{u,v\in \mathcal {M}}\lvert (\hat {X}'_{\mathfrak {re}}[u,v]+j\hat {X}'_{\mathfrak {im}}[u,v])-(Z_{\mathfrak {re}}[u,v]+jZ_{\mathfrak {im}}[u,v])\rvert \right ]\\ &=\mathbb {E}\left [\frac {1}{M}\sum _{u,v\in \mathcal {M}}\sqrt {\left (\hat {X}'_{\mathfrak {re}}[u,v]-Z_{\mathfrak {re}}[u,v]\right )^2+\left (\hat {X}'_{\mathfrak {im}}[u,v]-Z_{\mathfrak {im}}[u,v]\right )^2}\right ]\\ &=\mathbb {E}_{u,v\in \mathcal {M}}\left [\sqrt {\left (\hat {X}'_{\mathfrak {re}}[u,v]-Z_{\mathfrak {re}}[u,v]\right )^2+\left (\hat {X}'_{\mathfrak {im}}[u,v]-Z_{\mathfrak {im}}[u,v]\right )^2}\right ]\\ &=\frac {\sqrt {3}}{2}N\int _\mathbb {R} \sqrt {x}f_{\chi ^2(2)}(x)dx=\frac {\sqrt {3}}{2}N\sqrt {\frac {\pi }{2}}. \end {aligned}
+(13)
+Similarly, making use of Xˆ
+re[u, v], Xˆ
+im[u, v], Yˆ
+re[u, v], Yˆ
+im[u, v], Zre[u, v], Zim[u, v] ∼
+N
+
+0,
+
+√
+N
+2
+2
+
+, the pixel-number-normalized ℓ1 distance is given by
+ \mathbb {E}\left [\frac {1}{N^2}\lVert \hat {X}[u,v]-Z[u,v]\rVert _1\right ]=N\sqrt {\frac {\pi }{2}}. (14)
+ \mathbb {E}\left [\frac {1}{N^2}\lVert \hat {Y}[u,v]-Z[u,v]\rVert _1\right ]=N\sqrt {\frac {\pi }{2}}. (15)
+RingID: Enhanced Multi-Key Identification 23
+These expectations satisfy:
+ \label {eq:supp_shift_conclusion} \mathbb {E}\left [\lVert \hat {X}'-Z\rVert _1\right ]=\frac {\sqrt {3}}{2}\mathbb {E}\left [\lVert \hat {X}-Z\rVert _1\right ]=\frac {\sqrt {3}}{2}\mathbb {E}\left [\lVert \hat {Y}-Z\rVert _1\right ]. (16)
+Generally speaking, discarding the imaginary part causes the expectation of ℓ1-to-reference distance to shift by
+√
+3
+2
+statistically. This
+shift factor is derived under several assumptions. In practice, situations are more
+complicated. Tree-Ring injects a fixed watermark pattern. Thus Xˆ, Xˆ′ and Z all
+carries information of a specific pattern and correlates with each other. They are
+not i.i.d samples. Both pattern matching and the distribution shift contributes
+to the expectation of ℓ1 distance in Eq. (16).
+A.6 Distribution Shift in Real Scenarios
+As mentioned above, in practice, many other factors affect the distribution shift
+of the ℓ1 distance to reference. These factors include the matching of pattern,
+attacks, diffusion and inversion process, etc. To assess the distribution shift in
+real scenarios, we conduct a set of control experiments.
+In Control 1, we follow the original setup of Tree-Ring. The original setup
+aims at distinguishing between the recovered watermark wˆ (shifted) and the
+null watermark wˆ∅ (not shifted) recovered from the unwatermarked images, i.e.
+∥wˆ − w∥1 v.s. ∥wˆ∅ − w∥1.
+In Control 2, we shift null watermark wˆ∅ to the same extent as the operation
+of discarding imaginary part does. Then we get a shifted null watermark wˆ
+′
+∅.
+We distinguish between wˆ and wˆ
+′
+∅, i.e. ∥wˆ − w∥1 v.s. ∥wˆ
+′
+∅ − w∥1. Here, both wˆ
+and wˆ
+′
+∅ are shifted to the same extent, so we eliminate the help of distribution
+shift.
+We compare the results of Control 1 and 2 in Tab. 7. We can find general
+performance drop under all attacks in Control 2. The average AUC decreases
+from 0.975 to 0.913, making it more challenging to distinguish watermarked and
+non-watermarked images without the help of distribution shift. Further observation reveals that the major drop occurs in Rotation and Crop & Scale attacks,
+indicating that distribution shift contributes substantially to the robustness to
+Rotate and Crop & Scale attacks. This also implies that the original Tree-Ring
+watermark pattern cannot handle these attacks.
+Meanwhile, we stat the average ℓ1-to-reference distance in these two control
+experiments and compare them in Tab. 8. Without the help of distribution shift
+in Control 2, the expectations of ∥wˆ∅ − w∥1 and ∥wˆ
+′
+∅ − w∥1 are closer, especially under Rotation and C&S attacks, indicating overlapped distribution. This
+implies a lower AUC and more difficulty in distinguishing, consistent with the
+results in Tab. 7.
+24 H. Ci et al.
+Table 7: Control experiments to demonstrate the effect of distribution shift. We report
+AUC in verification setting. In Control 1, distribution shift helps distinguish. In Control
+2, distribution shift doesn’t help. We observe the big performance drop under Rotate
+and C&S attacks.
+Experiment Clean Rotate JPEG C&S Blur Noise Bright Avg
+Control 1 1.000 0.935 0.999 0.961 0.999 0.944 0.983 0.975
+Control 2 1.000 0.728 0.999 0.746 0.998 0.940 0.978 0.913
+Table 8: Average ℓ1-to-reference distance in 2 control experiments. We use ∆ to denote
+the difference between ∥wˆ∅ − w∥1 and ∥wˆ∅ − w∥1, ∥wˆ∅ − w∥1 and ∥wˆ
+′
+∅ − w∥1. Larger
+∆ means easier to distinguish.
+Experiment Target Clean Rotate JPEG C&S Blur Noise Bright Avg
+- ∥wˆ − w∥1 51.50 78.85 66.16 76.96 69.41 73.73 64.86 68.78
+Control 1 ∥wˆ∅ − w∥1 83.92 83.96 84.35 84.58 90.84 83.10 83.30 84.86
+∆ 32.43 5.11 18.18 7.63 21.43 9.37 18.44 16.08
+Control 2 ∥wˆ
+′
+∅ − w∥1 77.31 80.60 81.21 79.70 86.46 81.63 80.34 81.04
+∆ 25.81 1.75 15.05 2.74 17.05 7.90 15.48 12.26
+B Discarding Imaginary Part As Standalone
+Watermarking Approach
+We demonstrate the operation of discarding the imaginary part can be used as
+a standalone watermarking approach. Concretely, for each initial noise instance
+intended for watermarking, rather than injecting a ring watermark into the frequency spectrum X, we opt to inject a random Gaussian noise ∼ NC(0, N) into
+the same region. Note that the injected noise are i.i.d. sampled for each case
+thus different from each other. Although originating from the same distribution,
+the newly introduced Gaussian noise typically lacks conjugate symmetry. Consequently, when transforming to the spatial domain, it necessitates discarding
+the excess imaginary parts. This results in a distribution shift in watermarked
+noise, thus the actually injected noise is from NC(0,
+N
+2
+).
+As discussed in previous sections, this shift induces deviations in the ℓ1 distance and energy of the watermarked noise from the non-watermarked noise.
+During verification, we explore three different methods to distinguish the watermarked and the non-watermarked. Specifically, we compute the ℓ1 distance
+between the recovered noise and three different references: (1) random Gaussian noise ∼ NC(0, N) (2) zero (3) zero but with ℓ2 distance (corresponding to
+distinguishing the energy between the watermarked and the non-watermarked).
+Empirical results are presented in Tab. 9. We can find all the mentioned methods
+effectively detect the presence of the watermark. When we use zero as the reference, the distinction is most pronounced, highlighting its superior discriminatory
+performance.
+RingID: Enhanced Multi-Key Identification 25
+Table 9: Quantitative results when discarding imaginary part is used as a standalone watermarking approach. We calculate the distance between the recovered noise
+and different references for distinguishment between the watermarked and the nonwatermarked. Note that when the reference is Zero and the metric is ℓ2, it actually
+distinguishes by energy. AUC is reported.
+Ref Metric Clean Rotate JPEG C&S Blur Noise Bright Avg
+Gaussian ℓ1 0.970 0.837 0.812 0.907 0.841 0.663 0.783 0.831
+Zero ℓ1 0.998 0.908 0.925 0.967 0.879 0.747 0.881 0.901
+Zero ℓ2 0.999 0.908 0.925 0.967 0.883 0.741 0.881 0.901
+3 Channels 2 Channels 4 Channels
+Fig. 8: Generated artifacts when we imprint the ring watermarks on multiple channels.
+Relation with Tree-Ringrand [41] provides a variant called Tree-Ringrand that
+also injects noise as the watermark. However, they inject the same noise pattern
+for all generated images and intend to rely on pattern matching for watermark
+verification. The proposed method in this section distinguishes itself from TreeRingrand by injecting i.i.d. sampled noise for each generated image. The AUC for
+Tree-Ringrand [41] and ours is 0.918 and 0.901, respectively. The closely matched
+performances indicate that the deviation introduced by discarding imaginary
+part offers very robust discriminative power. This suggests that discarding imaginary part can effectively distinguish between watermarked and non-watermarked
+images even without relying on the specific noise pattern.
+C Failure Cases of Multi-Channel Rings
+As discussed in the main text, we can imprint the ring watermarks onto multiple
+channels to increase the capacity. However, we find that this often leads to the
+generation of ring-like artifacts, evident in a substantial proportion of cases,
+illustrated in Fig. 8. So we only imprint the ring watermark on a single channel
+by default.
+26 H. Ci et al.
+Table 10: Empirical results of RingID on different diffusion models. Identification
+accuracy is reported.
+Models #Assigned Keys Clean Rotate JPEG C&S Blur Noise Bright Avg
+SD 1.4 128 0.950 0.920 0.950 0.350 0.950 0.930 0.910 0.851
+SD 1.5 128 0.960 0.940 0.960 0.340 0.950 0.940 0.910 0.857
+SD 2.1 128 1.000 0.980 1.000 0.280 0.980 1.000 0.940 0.883
+SD 1.4 2048 0.970 0.810 0.950 0.080 0.970 0.900 0.820 0.786
+SD 1.5 2048 0.990 0.800 0.970 0.110 0.950 0.950 0.850 0.803
+SD 2.1 2048 1.000 0.860 1.000 0.080 0.970 0.950 0.870 0.819
+Table 11: Comparison with more methods on verification.
+Methods AUC/T@1%F (Clean)↑ AUC/T@1%F (Adv)↑ FID↓ CLIP Score ↑
+DwtDctSvd [9] 1.0 / 1.0 0.702 / 0.262 25.01 0.359
+RivaGAN [49] 0.999 / 0.999 0.854 / 0.448 24.51 0.361
+Tree-Ring [41] 1.0 / 1.0 0.975 / 0.694 25.93 0.364
+RingID 1.0 / 1.0 0.995 / 0.926 26.13 0.365
+D More Ablations and Comparisons
+D.1 Results on Different Diffusion Models
+RingID is a universal method that can be applied to different diffusion models.
+Tab. 10 shows the results on more diffusion models. It is worth noting that the
+performance of RingID gradually improves from the older version of SD to the
+newer version of SD.
+D.2 Comparison with More Methods
+Tab. 11 compares RingID with more methods on the watermark verification task.
+We can find that RingID achieves the best AUC and TPR@1%FPR under
+both clean and adversarial settings, showcasing strong robustness

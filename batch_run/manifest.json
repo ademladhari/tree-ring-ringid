@@ -1,0 +1,62 @@
+{
+  "count": 10,
+  "bundle_dir": "batch_run",
+  "latent_seed_base": 0,
+  "watermark_seed": 42,
+  "prompt": "a red bicycle",
+  "negative_prompt": "",
+  "profile": "tree_ring",
+  "images": [
+    {
+      "index": 0,
+      "filename": "img_00.png",
+      "latent_seed": 0
+    },
+    {
+      "index": 1,
+      "filename": "img_01.png",
+      "latent_seed": 1
+    },
+    {
+      "index": 2,
+      "filename": "img_02.png",
+      "latent_seed": 2
+    },
+    {
+      "index": 3,
+      "filename": "img_03.png",
+      "latent_seed": 3
+    },
+    {
+      "index": 4,
+      "filename": "img_04.png",
+      "latent_seed": 4
+    },
+    {
+      "index": 5,
+      "filename": "img_05.png",
+      "latent_seed": 5
+    },
+    {
+      "index": 6,
+      "filename": "img_06.png",
+      "latent_seed": 6
+    },
+    {
+      "index": 7,
+      "filename": "img_07.png",
+      "latent_seed": 7
+    },
+    {
+      "index": 8,
+      "filename": "img_08.png",
+      "latent_seed": 8
+    },
+    {
+      "index": 9,
+      "filename": "img_09.png",
+      "latent_seed": 9
+    }
+  ],
+  "key_json": "key.json"
+}
